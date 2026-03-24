@@ -789,6 +789,46 @@ body::before {
 }
 
 /* ═══════════════════════════════════════════
+   MODE CARDS
+═══════════════════════════════════════════ */
+.mode-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--bg-card2);
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 16px;
+  margin-bottom: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.mode-card:hover { border-color: var(--gold-d); }
+.mode-card.selected {
+  border-color: var(--gold);
+  background: rgba(201,168,76,0.08);
+}
+.mode-icon { font-size: 1.8rem; flex-shrink: 0; }
+.mode-body { flex: 1; text-align: right; }
+.mode-title { font-size: 1rem; font-weight: 700; color: var(--gold-l); margin-bottom: 4px; }
+.mode-sub { font-size: 0.8rem; color: var(--text-m); line-height: 1.6; }
+.mode-size { font-size: 0.75rem; color: var(--gold-d); margin-top: 4px; }
+
+.upgrade-btn {
+  width: 100%;
+  background: rgba(201,168,76,0.08);
+  border: 1px solid rgba(201,168,76,0.25);
+  border-radius: 10px;
+  padding: 14px;
+  color: var(--gold-l);
+  font-family: 'Noto Naskh Arabic', serif;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.upgrade-btn:hover { background: rgba(201,168,76,0.15); }
+
+/* ═══════════════════════════════════════════
    SCROLLBAR
 ═══════════════════════════════════════════ */
 ::-webkit-scrollbar { width: 5px; }
@@ -828,35 +868,41 @@ body::before {
   <div id="setup-screen">
     <div class="setup-card">
       <div class="setup-icon">📚</div>
-      <div class="setup-title">الإعداد الأول</div>
-      <div class="setup-desc">
-        يحتاج التطبيق إلى تحميل بيانات التفاسير مرة واحدة فقط.<br>
-        بعدها يعمل بالكامل <strong>بدون إنترنت</strong>.<br><br>
-        سيتم تحميل ثمانية تفاسير معتمدة لكامل القرآن الكريم.<br>
-        <small style="color:var(--text-m)">المدة المتوقعة: دقيقتان إلى خمس دقائق حسب سرعة اتصالك</small><br><small style="color:var(--gold-d)">المساحة المطلوبة: ~200 ميغابايت في ذاكرة المتصفح</small>
-      </div>
-      <div class="setup-tafsirs">
-        <span class="setup-tafsir-tag">الطبري</span>
-        <span class="setup-tafsir-tag">ابن كثير</span>
-        <span class="setup-tafsir-tag">البغوي</span>
-        <span class="setup-tafsir-tag">القرطبي</span>
-        <span class="setup-tafsir-tag">السعدي</span>
-        <span class="setup-tafsir-tag">الميسر</span>
-        <span class="setup-tafsir-tag">الوسيط</span>
-        <span class="setup-tafsir-tag">تنوير المقباس</span>
+      <div class="setup-title">تفسير القرآن الكريم</div>
+      <div class="setup-desc">اختر طريقة الاستخدام</div>
+
+      <!-- خيار التحميل الكامل -->
+      <div class="mode-card" id="mode-offline" onclick="selectMode('offline')">
+        <div class="mode-icon">📥</div>
+        <div class="mode-body">
+          <div class="mode-title">تحميل كامل</div>
+          <div class="mode-sub">يعمل بدون إنترنت بعد التحميل</div>
+          <div class="mode-size">المساحة المطلوبة: ~200 MB</div>
+        </div>
       </div>
 
-      <div style="background:rgba(201,168,76,0.07);border:1px solid rgba(201,168,76,0.22);border-radius:10px;padding:14px 16px;margin-bottom:20px;">
-        <div style="font-size:0.8rem;color:#c9a84c;font-weight:600;margin-bottom:8px;">⚠ تنبيه مهم قبل البدء</div>
+      <!-- خيار البحث على الإنترنت -->
+      <div class="mode-card" id="mode-online" onclick="selectMode('online')">
+        <div class="mode-icon">🌐</div>
+        <div class="mode-body">
+          <div class="mode-title">البحث على الإنترنت</div>
+          <div class="mode-sub">تحميل إعدادات التشغيل فقط</div>
+        </div>
+      </div>
+
+      <!-- تنبيه التحميل الكامل -->
+      <div id="offline-warning" style="display:none;background:rgba(201,168,76,0.07);border:1px solid rgba(201,168,76,0.22);border-radius:10px;padding:14px 16px;margin-bottom:16px;">
+        <div style="font-size:0.8rem;color:#c9a84c;font-weight:600;margin-bottom:8px;">⚠ تنبيه مهم</div>
         <div style="font-size:0.78rem;color:#8a9bb5;line-height:1.9;">
-          البيانات ستُخزَّن في ذاكرة <strong style="color:#ddd5c5">هذا المتصفح</strong> على جهازك، وليس كملف مستقل على الجهاز.<br>
-          <span style="color:#f85149">◼ إذا مسحت بيانات المتصفح أو حذفته</span> — ستحتاج إلى إعادة التحميل.<br>
-          <span style="color:#f85149">◼ إذا فتحت التطبيق من متصفح آخر</span> — ستحتاج إلى إعادة التحميل.<br>
+          البيانات ستُخزَّن في ذاكرة <strong style="color:#ddd5c5">هذا المتصفح</strong> على جهازك.<br>
+          <span style="color:#f85149">◼ إذا مسحت بيانات المتصفح أو حذفته</span> — ستحتاج إعادة التحميل.<br>
+          <span style="color:#f85149">◼ إذا فتحت التطبيق من متصفح آخر</span> — ستحتاج إعادة التحميل.<br>
           <strong style="color:#3fb950">✓ في غير ذلك تبقى البيانات محفوظة بشكل دائم.</strong>
         </div>
       </div>
 
-      <button class="setup-btn" onclick="startDownload()">ابدأ التحميل</button>
+      <button class="setup-btn" id="mode-btn" onclick="confirmMode()" style="display:none;">ابدأ</button>
+
       <div class="progress-wrap" id="progress-wrap">
         <div class="progress-label" id="progress-label">جارٍ التحضير...</div>
         <div class="progress-bar-bg">
@@ -871,12 +917,8 @@ body::before {
   <!-- MAIN APP -->
   <div id="main-app">
 
-    <div style="text-align:center; margin-bottom:16px;">
-      <span class="offline-badge">
-        <span class="offline-dot"></span>
-        يعمل بدون إنترنت
-      </span>
-      <span onclick="confirmReload()" style="margin-right:10px;font-size:0.7rem;color:var(--text-m);cursor:pointer;text-decoration:underline;text-underline-offset:3px;">إعادة تحميل البيانات</span>
+    <div style="text-align:center; margin-bottom:16px;" id="status-bar">
+      <!-- يُملأ ديناميكياً حسب الوضع -->
     </div>
 
     <!-- NAV TABS -->
@@ -923,6 +965,12 @@ body::before {
 
     <!-- FOOTER -->
     <div class="app-footer">
+      <!-- زر التحميل الكامل — يظهر فقط لوضع الإنترنت -->
+      <div id="upgrade-bar" style="display:none;margin-bottom:24px;">
+        <button onclick="upgradeToOffline()" class="upgrade-btn">
+          ⬇ تحميل كامل للعمل بدون إنترنت
+        </button>
+      </div>
       <div class="footer-line"></div>
       <div class="footer-text">
         ✦ لا يُفسَّر القرآن الكريم من عند البرنامج ✦<br>
@@ -1106,20 +1154,99 @@ function dbGetAll(store) {
 }
 
 // ═══════════════════════════════════════════
+//  APP MODE
+// ═══════════════════════════════════════════
+let appMode = null; // 'offline' | 'online'
+let selectedMode = null;
+
+function selectMode(mode) {
+  selectedMode = mode;
+  document.getElementById('mode-offline').classList.toggle('selected', mode === 'offline');
+  document.getElementById('mode-online').classList.toggle('selected', mode === 'online');
+  document.getElementById('offline-warning').style.display = mode === 'offline' ? 'block' : 'none';
+  const btn = document.getElementById('mode-btn');
+  btn.style.display = 'block';
+  btn.textContent = mode === 'offline' ? 'ابدأ التحميل' : 'ابدأ';
+}
+
+async function confirmMode() {
+  if (!selectedMode) return;
+  if (selectedMode === 'online') {
+    await dbPut(STORE_META, 'mode', 'online');
+    // تحميل نص القرآن فقط (~2MB)
+    const btn = document.getElementById('mode-btn');
+    btn.disabled = true;
+    btn.textContent = 'جارٍ التحضير...';
+    document.getElementById('progress-wrap').style.display = 'block';
+    try {
+      await downloadQuranText();
+      await dbPut(STORE_META, 'loaded', 'online');
+      setProgress('اكتمل! ✓', 100);
+      setTimeout(() => { appMode = 'online'; showMainApp(); }, 600);
+    } catch(err) {
+      const el = document.getElementById('progress-error');
+      el.textContent = 'حدث خطأ: ' + err.message;
+      el.style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = 'أعد المحاولة';
+    }
+  } else {
+    await dbPut(STORE_META, 'mode', 'offline');
+    startDownload();
+  }
+}
+
+function renderStatusBar() {
+  const bar = document.getElementById('status-bar');
+  const upgradeBar = document.getElementById('upgrade-bar');
+  if (appMode === 'offline') {
+    bar.innerHTML = `
+      <span class="offline-badge">
+        <span class="offline-dot"></span>
+        يعمل بدون إنترنت
+      </span>
+      <span onclick="confirmReload()" style="margin-right:8px;font-size:0.7rem;color:var(--text-m);cursor:pointer;opacity:0.6;transition:opacity 0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.6">⟳ إعادة التحميل</span>`;
+    upgradeBar.style.display = 'none';
+  } else {
+    bar.innerHTML = `
+      <span class="offline-badge" style="background:rgba(88,166,255,0.1);border-color:rgba(88,166,255,0.25);color:var(--blue);">
+        <span class="offline-dot" style="background:var(--blue)"></span>
+        البحث على الإنترنت
+      </span>`;
+    upgradeBar.style.display = 'block';
+  }
+}
+
+function upgradeToOffline() {
+  if (!confirm('سيتم تحميل التفاسير كاملةً (~200 MB) للعمل بدون إنترنت. هل تريد المتابعة؟')) return;
+  dbPut(STORE_META, 'mode', 'offline').then(() => {
+    dbPut(STORE_META, 'loaded', null).then(() => {
+      document.getElementById('main-app').style.display = 'none';
+      document.getElementById('setup-screen').style.display = 'block';
+      selectMode('offline');
+    });
+  });
+}
+
+// ═══════════════════════════════════════════
 //  BOOT
 // ═══════════════════════════════════════════
 async function boot() {
   db = await openDB();
 
-  // Load user data
-  const favRaw    = await dbGet(STORE_USER, 'favorites');
-  const recRaw    = await dbGet(STORE_USER, 'recentSearches');
-  favorites       = favRaw ? JSON.parse(favRaw) : [];
-  recentSearches  = recRaw ? JSON.parse(recRaw) : [];
+  const favRaw   = await dbGet(STORE_USER, 'favorites');
+  const recRaw   = await dbGet(STORE_USER, 'recentSearches');
+  favorites      = favRaw ? JSON.parse(favRaw) : [];
+  recentSearches = recRaw ? JSON.parse(recRaw) : [];
 
-  // Check if data loaded
   const loaded = await dbGet(STORE_META, 'loaded');
+  const mode   = await dbGet(STORE_META, 'mode');
+
   if (loaded === 'yes') {
+    appMode = 'offline';
+    showMainApp();
+  } else if (loaded === 'online') {
+    appMode = 'online';
     showMainApp();
   } else {
     document.getElementById('setup-screen').style.display = 'block';
@@ -1174,6 +1301,7 @@ async function startDownload() {
     }
 
     await dbPut(STORE_META, 'loaded', 'yes');
+    appMode = 'offline';
     setProgress('اكتمل التحميل بنجاح! ✓', 100);
 
     setTimeout(() => showMainApp(), 800);
@@ -1290,6 +1418,7 @@ async function fetchWithRetry(url, retries = 3) {
 function showMainApp() {
   document.getElementById('setup-screen').style.display = 'none';
   document.getElementById('main-app').style.display = 'block';
+  renderStatusBar();
   renderRecent();
   renderFavCount();
   document.getElementById('search-input').focus();
@@ -1337,26 +1466,50 @@ async function doSearch(q) {
       return;
     }
 
-    // Fetch ayah text
     const ayahRecord = await dbGet(STORE_AYAT, `${surah}:${ayah}`);
+    let tafsirMap = {};
 
-    // Fetch all tafsirs for this ayah
-    const tafsirRecords = await dbGetByIndex(STORE_TAFSIR, 'surah_ayah', [surah, ayah]);
-
-    // Build map slug -> text
-    const tafsirMap = {};
-    for (const r of tafsirRecords) {
-      tafsirMap[r.slug] = r.text;
+    if (appMode === 'offline') {
+      // جلب من IndexedDB
+      const tafsirRecords = await dbGetByIndex(STORE_TAFSIR, 'surah_ayah', [surah, ayah]);
+      for (const r of tafsirRecords) tafsirMap[r.slug] = r.text;
+    } else {
+      // جلب مباشر من tafsir_api
+      tafsirMap = await fetchTafsirsOnline(surah, ayah);
     }
 
     currentResult = { surah, ayah, ayahText: ayahRecord?.text || '', tafsirMap };
-
     resultsEl.innerHTML = renderResults(surah, ayah, ayahRecord?.text || '', tafsirMap, query);
     renderRecent(query);
 
   } catch(err) {
     resultsEl.innerHTML = `<div class="no-results"><div class="no-results-icon">⚠</div><div class="no-results-text">${err.message}</div></div>`;
   }
+}
+
+// ═══════════════════════════════════════════
+//  ONLINE TAFSIR FETCH
+// ═══════════════════════════════════════════
+async function fetchTafsirsOnline(surah, ayah) {
+  const map = {};
+  // جلب التفاسير الثمانية بشكل متوازٍ
+  const promises = TAFSIRS.map(async t => {
+    try {
+      const url = `${CDN}/${t.slug}/${surah}.json`;
+      const res  = await fetchWithRetry(url, 2);
+      const data = await res.json();
+      const ayahs = Array.isArray(data) ? data :
+                    Array.isArray(data.chapter) ? data.chapter :
+                    data.verses || data.ayahs || [];
+      const found = ayahs.find(a => {
+        const n = a.ayah ?? a.verse ?? a.numberInSurah ?? a.number;
+        return parseInt(n) === parseInt(ayah);
+      });
+      if (found) map[t.slug] = found.text ?? found.content ?? '';
+    } catch { /* تجاهل إذا لم يتوفر */ }
+  });
+  await Promise.all(promises);
+  return map;
 }
 
 // ═══════════════════════════════════════════
@@ -1723,7 +1876,7 @@ function escAttr(s) {
 //  RELOAD DATA
 // ═══════════════════════════════════════════
 async function confirmReload() {
-  if (!confirm('هل تريد إعادة تحميل بيانات التفاسير؟\nسيتطلب ذلك اتصالاً بالإنترنت.')) return;
+  if (!confirm('هل تريد إعادة تحميل بيانات التفاسير؟ سيتطلب ذلك اتصالاً بالإنترنت.')) return;
   // مسح علامة التحميل فقط مع الإبقاء على المفضلة
   const tx = db.transaction(STORE_META, 'readwrite');
   tx.objectStore(STORE_META).delete('loaded');
