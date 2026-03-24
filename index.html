@@ -1201,11 +1201,13 @@ function renderStatusBar() {
   const upgradeBar = document.getElementById('upgrade-bar');
   if (appMode === 'offline') {
     bar.innerHTML = `
-      <span class="offline-badge">
-        <span class="offline-dot"></span>
-        يعمل بدون إنترنت
-      </span>
-      <span onclick="confirmReload()" style="margin-right:8px;font-size:0.7rem;color:var(--text-m);cursor:pointer;opacity:0.6;transition:opacity 0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.6">⟳ إعادة التحميل</span>`;
+      <div style="display:inline-flex;align-items:center;gap:12px;justify-content:center;">
+        <span class="offline-badge">
+          <span class="offline-dot"></span>
+          يعمل بدون إنترنت
+        </span>
+        <span onclick="confirmReload()" style="font-size:0.7rem;color:var(--text-m);cursor:pointer;opacity:0.55;transition:opacity 0.2s;white-space:nowrap;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.55">⟳ إعادة التحميل</span>
+      </div>`;
     upgradeBar.style.display = 'none';
   } else {
     bar.innerHTML = `
@@ -1556,40 +1558,106 @@ function resolveSurahName(name) {
   return null;
 }
 
-// تطبيع النص: إزالة التشكيل وتوحيد الأحرف للمقارنة
+// ═══ تطبيع النص: الخيار أ ═══
+// إزالة التشكيل + توحيد الأحرف المتشابهة
 function normalizeArabic(text) {
   if (!text) return '';
   return text
-    .replace(/[ً-ٟؐ-ؚٰۖ-ۭ]/g, '') // إزالة التشكيل كاملاً
-    .replace(/[آأإٱ]/g, 'ا') // توحيد الألف بأشكالها
-    .replace(/ة/g, 'ه')   // تاء مربوطة → هاء
-    .replace(/ى/g, 'ي')   // ألف مقصورة → ياء
-    .replace(/ؤ/g, 'و')   // واو بهمزة → واو
-    .replace(/ئ/g, 'ي')   // ياء بهمزة → ياء
+    .replace(/[ً-ٟؐ-ؚٰۖ-ۭ]/g, '') // كل التشكيل
+    .replace(/[آأإٱا]/g, 'ا')  // توحيد الألف بجميع أشكالها
+    .replace(/[ةه]/g, 'ه')                    // تاء مربوطة وهاء → ه
+    .replace(/[ىي]/g, 'ي')                    // ألف مقصورة وياء → ي
+    .replace(/[ؤو]/g, 'و')                    // واو بهمزة وواو → و
+    .replace(/[ئي]/g, 'ي')                    // ياء بهمزة → ي
+    .replace(/ء/g, '')                              // حذف الهمزة المستقلة
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+// ═══ تقسيم الاستعلام إلى كلمات: الخيار ب ═══
+function getSearchWords(q) {
+  return normalizeArabic(q)
+    .split(' ')
+    .filter(w => w.length >= 2); // تجاهل الكلمات القصيرة جداً
+}
+
+// ═══ حساب نقاط التشابه بين نص الآية والاستعلام ═══
+function scoreMatch(ayahNorm, queryWords) {
+  let score = 0;
+  let consecutive = 0;
+  const ayahWords = ayahNorm.split(' ');
+
+  for (const qw of queryWords) {
+    // تطابق كامل للكلمة
+    if (ayahWords.includes(qw)) {
+      score += 3;
+      consecutive++;
+    }
+    // تطابق جزئي — الكلمة موجودة ضمن نص الآية
+    else if (ayahNorm.includes(qw)) {
+      score += 2;
+    }
+    // تطابق بالبداية — مفيد للمجرد والمزيد
+    else if (ayahWords.some(aw => aw.startsWith(qw) || qw.startsWith(aw))) {
+      score += 1;
+    }
+  }
+  // مكافأة إضافية إذا تعددت الكلمات المتطابقة
+  if (consecutive > 1) score += consecutive;
+  return score;
 }
 
 async function searchByKeyword(q) {
   const qNorm = normalizeArabic(q);
   if (!qNorm || qNorm.length < 2) return null;
+
+  const queryWords = getSearchWords(q);
+  if (!queryWords.length) return null;
+
+  // إذا كانت الجملة كاملة → نجرب التطابق الكامل أولاً (أسرع)
+  const exactResult = await searchExact(qNorm);
+  if (exactResult) return exactResult;
+
+  // الخيار ب: بحث بالكلمات مع تسجيل النقاط
+  return await searchBestMatch(queryWords);
+}
+
+// بحث بالتطابق الكامل للنص المطبَّع
+function searchExact(qNorm) {
   return new Promise((resolve, reject) => {
     const tx  = db.transaction(STORE_AYAT, 'readonly');
     const req = tx.objectStore(STORE_AYAT).openCursor();
     let found = null;
-    let checked = 0;
     req.onsuccess = e => {
       const cursor = e.target.result;
-      if (!cursor || found) {
-        resolve(found);
-        return;
-      }
-      checked++;
-      const textNorm = normalizeArabic(cursor.value.text);
-      if (textNorm && textNorm.includes(qNorm)) {
+      if (!cursor || found) { resolve(found); return; }
+      if (normalizeArabic(cursor.value.text).includes(qNorm)) {
         found = { surah: cursor.value.surah, ayah: cursor.value.ayah };
-        resolve(found);
-        return;
+        resolve(found); return;
+      }
+      cursor.continue();
+    };
+    req.onerror = e => reject(e.target.error);
+  });
+}
+
+// بحث بأفضل تطابق بالكلمات (الخيار ب)
+function searchBestMatch(queryWords) {
+  return new Promise((resolve, reject) => {
+    const tx  = db.transaction(STORE_AYAT, 'readonly');
+    const req = tx.objectStore(STORE_AYAT).openCursor();
+    let best = null;
+    let bestScore = 0;
+    const minScore = Math.max(1, Math.floor(queryWords.length * 0.4));
+
+    req.onsuccess = e => {
+      const cursor = e.target.result;
+      if (!cursor) { resolve(best); return; }
+      const ayahNorm = normalizeArabic(cursor.value.text);
+      const score    = scoreMatch(ayahNorm, queryWords);
+      if (score > bestScore) {
+        bestScore = score;
+        best = { surah: cursor.value.surah, ayah: cursor.value.ayah };
       }
       cursor.continue();
     };
