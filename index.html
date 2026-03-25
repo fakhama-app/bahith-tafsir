@@ -1711,6 +1711,7 @@ document.addEventListener('click', e => {
 });
 
 async function doSearch(q) {
+  hideSuggestions();
   const input = document.getElementById('search-input');
   const query = (q || input.value).trim();
   if (!query) return;
