@@ -920,6 +920,37 @@ html.day .theme-toggle-thumb {
 }
 
 /* ═══════════════════════════════════════════
+   SEARCH CLEAR BUTTON
+═══════════════════════════════════════════ */
+.search-input-wrap {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.search-input-wrap .search-input {
+  flex: 1;
+  padding-left: 36px;
+}
+.search-clear {
+  position: absolute;
+  left: 10px;
+  background: none;
+  border: none;
+  color: var(--text-m);
+  font-size: 0.8rem;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 50%;
+  line-height: 1;
+  transition: color 0.2s, background 0.2s;
+}
+.search-clear:hover {
+  color: var(--red);
+  background: rgba(248,81,73,0.1);
+}
+
+/* ═══════════════════════════════════════════
    SEARCH SUGGESTIONS
 ═══════════════════════════════════════════ */
 .suggestions-wrap {
@@ -1081,15 +1112,18 @@ html.day .theme-toggle-thumb {
         <label class="search-label">🔍 ابحث بنص الآية أو رقم السورة والآية أو اسم السورة</label>
         <div class="suggestions-wrap">
           <div class="search-row">
-            <input
-              type="text"
-              class="search-input"
-              id="search-input"
-              placeholder='مثال: البقرة 255 — أو: 2:255 — أو: اهدنا الصراط'
-              onkeydown="handleSearchKey(event)"
-              oninput="onQueryChange()"
-              autocomplete="off"
-            >
+            <div class="search-input-wrap">
+              <input
+                type="text"
+                class="search-input"
+                id="search-input"
+                placeholder='مثال: البقرة 255 — أو: 2:255 — أو: اهدنا الصراط'
+                onkeydown="handleSearchKey(event)"
+                oninput="onQueryChange()"
+                autocomplete="off"
+              >
+              <button class="search-clear" id="search-clear" onclick="clearSearch()" style="display:none">✕</button>
+            </div>
             <button class="search-btn" id="search-btn" onclick="doSearch()">ابحث</button>
           </div>
           <div id="suggestions-list" class="suggestions-list" style="display:none"></div>
@@ -1604,6 +1638,10 @@ function onQueryChange() {
   clearTimeout(suggestTimer);
   selectedSuggestion = -1;
 
+  // إظهار/إخفاء زر المسح
+  const clearBtn = document.getElementById('search-clear');
+  if (clearBtn) clearBtn.style.display = q ? 'block' : 'none';
+
   if (!q || q.length < 2 || appMode !== 'offline') {
     hideSuggestions();
     return;
@@ -1690,6 +1728,18 @@ function renderSuggestions(results, q) {
   }).join('');
 
   list.style.display = 'block';
+}
+
+function clearSearch() {
+  const input = document.getElementById('search-input');
+  const clearBtn = document.getElementById('search-clear');
+  input.value = '';
+  if (clearBtn) clearBtn.style.display = 'none';
+  hideSuggestions();
+  input.focus();
+  // مسح نتائج البحث
+  document.getElementById('search-results').innerHTML = '';
+  renderEmptySearch();
 }
 
 function hideSuggestions() {
