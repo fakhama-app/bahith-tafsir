@@ -920,6 +920,52 @@ html.day .theme-toggle-thumb {
 }
 
 /* ═══════════════════════════════════════════
+   SEARCH SUGGESTIONS
+═══════════════════════════════════════════ */
+.suggestions-wrap {
+  position: relative;
+}
+.suggestions-list {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0; left: 0;
+  background: var(--bg-card2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  z-index: 50;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  animation: fadeUp 0.15s ease;
+}
+.suggestion-item {
+  padding: 11px 16px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border2);
+  transition: background 0.15s;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.suggestion-item:last-child { border-bottom: none; }
+.suggestion-item:hover { background: var(--bg-card3); }
+.suggestion-ayah {
+  font-family: 'Scheherazade New', serif;
+  font-size: 1rem;
+  color: var(--text-q);
+  line-height: 1.7;
+  unicode-bidi: plaintext;
+  direction: rtl;
+}
+.suggestion-ref {
+  font-size: 0.72rem;
+  color: var(--gold-d);
+}
+.suggestion-highlight {
+  color: var(--gold-l);
+  font-weight: 600;
+}
+
+/* ═══════════════════════════════════════════
    SCROLLBAR
 ═══════════════════════════════════════════ */
 ::-webkit-scrollbar { width: 5px; }
@@ -1033,16 +1079,20 @@ html.day .theme-toggle-thumb {
     <div id="view-search">
       <div class="search-box">
         <label class="search-label">🔍 ابحث بنص الآية أو رقم السورة والآية أو اسم السورة</label>
-        <div class="search-row">
-          <input
-            type="text"
-            class="search-input"
-            id="search-input"
-            placeholder='مثال: البقرة 255 — أو: 2:255 — أو: اهدنا الصراط'
-            onkeydown="if(event.key==='Enter') doSearch()"
-            oninput="onQueryChange()"
-          >
-          <button class="search-btn" id="search-btn" onclick="doSearch()">ابحث</button>
+        <div class="suggestions-wrap">
+          <div class="search-row">
+            <input
+              type="text"
+              class="search-input"
+              id="search-input"
+              placeholder='مثال: البقرة 255 — أو: 2:255 — أو: اهدنا الصراط'
+              onkeydown="handleSearchKey(event)"
+              oninput="onQueryChange()"
+              autocomplete="off"
+            >
+            <button class="search-btn" id="search-btn" onclick="doSearch()">ابحث</button>
+          </div>
+          <div id="suggestions-list" class="suggestions-list" style="display:none"></div>
         </div>
         <div class="search-hint">
           أنماط البحث المدعومة:
@@ -1545,9 +1595,120 @@ function switchTab(tab) {
 // ═══════════════════════════════════════════
 //  SEARCH
 // ═══════════════════════════════════════════
+// ═══ متغيرات الاقتراحات ═══
+let suggestTimer = null;
+let selectedSuggestion = -1;
+
 function onQueryChange() {
-  // nothing live — on enter or button
+  const q = document.getElementById('search-input').value.trim();
+  clearTimeout(suggestTimer);
+  selectedSuggestion = -1;
+
+  if (!q || q.length < 2 || appMode !== 'offline') {
+    hideSuggestions();
+    return;
+  }
+  // انتظر 400ms بعد توقف الكتابة
+  suggestTimer = setTimeout(() => fetchSuggestions(q), 400);
 }
+
+function handleSearchKey(e) {
+  const list = document.getElementById('suggestions-list');
+  const items = list.querySelectorAll('.suggestion-item');
+
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    selectedSuggestion = Math.min(selectedSuggestion + 1, items.length - 1);
+    updateSuggestionHighlight(items);
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    selectedSuggestion = Math.max(selectedSuggestion - 1, -1);
+    updateSuggestionHighlight(items);
+  } else if (e.key === 'Enter') {
+    if (selectedSuggestion >= 0 && items[selectedSuggestion]) {
+      items[selectedSuggestion].click();
+    } else {
+      hideSuggestions();
+      doSearch();
+    }
+  } else if (e.key === 'Escape') {
+    hideSuggestions();
+  }
+}
+
+function updateSuggestionHighlight(items) {
+  items.forEach((el, i) => {
+    el.style.background = i === selectedSuggestion ? 'var(--bg-card3)' : '';
+  });
+}
+
+async function fetchSuggestions(q) {
+  const qNorm = normalizeArabic(q);
+  const words  = getSearchWords(q);
+  if (!words.length) return;
+
+  const results = await new Promise((resolve, reject) => {
+    const tx  = db.transaction(STORE_AYAT, 'readonly');
+    const req = tx.objectStore(STORE_AYAT).openCursor();
+    const found = [];
+
+    req.onsuccess = e => {
+      const cursor = e.target.result;
+      if (!cursor || found.length >= 6) { resolve(found); return; }
+      const text = cursor.value.text || '';
+      const norm = normalizeArabic(text);
+      // تطابق جزئي مباشر في النص المطبَّع
+      if (norm.includes(qNorm) || words.some(w => w.length >= 3 && norm.includes(w))) {
+        found.push({
+          surah: cursor.value.surah,
+          ayah:  cursor.value.ayah,
+          text:  text,
+        });
+      }
+      cursor.continue();
+    };
+    req.onerror = () => resolve([]);
+  });
+
+  if (results.length === 0) { hideSuggestions(); return; }
+  renderSuggestions(results, q);
+}
+
+function renderSuggestions(results, q) {
+  const list = document.getElementById('suggestions-list');
+  const qNorm = normalizeArabic(q);
+
+  list.innerHTML = results.map((r, i) => {
+    const surahName = getSurahName(r.surah);
+    // تمييز الكلمات المطابقة في النص
+    let displayText = escHtml(r.text.slice(0, 60)) + (r.text.length > 60 ? '...' : '');
+    return `
+    <div class="suggestion-item" onclick="pickSuggestion(${r.surah}, ${r.ayah})">
+      <div class="suggestion-ayah">${displayText}</div>
+      <div class="suggestion-ref">${surahName} — الآية ${r.ayah}</div>
+    </div>`;
+  }).join('');
+
+  list.style.display = 'block';
+}
+
+function hideSuggestions() {
+  const list = document.getElementById('suggestions-list');
+  if (list) list.style.display = 'none';
+  selectedSuggestion = -1;
+}
+
+function pickSuggestion(surah, ayah) {
+  hideSuggestions();
+  const q = `${getSurahName(surah)} ${ayah}`;
+  document.getElementById('search-input').value = q;
+  doSearch(q);
+}
+
+// إخفاء الاقتراحات عند النقر خارجها
+document.addEventListener('click', e => {
+  if (!e.target.closest('.suggestions-wrap')) hideSuggestions();
+});
 
 async function doSearch(q) {
   const input = document.getElementById('search-input');
