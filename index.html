@@ -1684,35 +1684,52 @@ function updateSuggestionHighlight(items) {
 }
 
 async function fetchSuggestions(q) {
-  const qNorm = normalizeArabic(q);
-  const words  = getSearchWords(q);
-  if (!words.length) return;
+  const qNorm   = normalizeArabic(q);
+  const allWords = getSearchWords(q);
+  if (!allWords.length) return;
+
+  // الكلمات ذات الوزن فقط — نتجاهل الشائعة في البحث
+  const weighted = allWords.filter(w => !COMMON_WORDS.has(w) && w.length >= 3);
+  // إذا كل الكلمات شائعة نستخدم الجملة كاملة
+  const searchWords = weighted.length > 0 ? weighted : allWords;
 
   const results = await new Promise((resolve, reject) => {
     const tx  = db.transaction(STORE_AYAT, 'readonly');
     const req = tx.objectStore(STORE_AYAT).openCursor();
-    const found = [];
+    const candidates = [];
 
     req.onsuccess = e => {
       const cursor = e.target.result;
-      if (!cursor || found.length >= 6) { resolve(found); return; }
+      if (!cursor) { resolve(candidates); return; }
       const text = cursor.value.text || '';
       const norm = normalizeArabic(text);
-      // تطابق جزئي مباشر في النص المطبَّع
-      if (norm.includes(qNorm) || words.some(w => w.length >= 3 && norm.includes(w))) {
-        found.push({
-          surah: cursor.value.surah,
-          ayah:  cursor.value.ayah,
-          text:  text,
-        });
+
+      // أولاً: تطابق الجملة كاملة (الأفضل)
+      let score = 0;
+      if (norm.includes(qNorm)) {
+        score = 100;
+      } else {
+        // تطابق الكلمات المهمة
+        for (const w of searchWords) {
+          if (norm.includes(w)) score += 10;
+        }
+      }
+
+      if (score > 0) {
+        candidates.push({ surah: cursor.value.surah, ayah: cursor.value.ayah, text, score });
       }
       cursor.continue();
     };
     req.onerror = () => resolve([]);
   });
 
-  if (results.length === 0) { hideSuggestions(); return; }
-  renderSuggestions(results, q);
+  // ترتيب حسب النقاط وأخذ أفضل 6
+  const sorted = candidates
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 6);
+
+  if (sorted.length === 0) { hideSuggestions(); return; }
+  renderSuggestions(sorted, q);
 }
 
 function renderSuggestions(results, q) {
